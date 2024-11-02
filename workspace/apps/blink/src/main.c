@@ -34,8 +34,9 @@ int main(void)
 			return 0;
 		}
 
-		led_state = !led_state;
 		printk("LED state: %s\n", led_state ? "ON" : "OFF");
+
+		led_state = !led_state;
 		k_msleep(SLEEP_TIME_MS);
 	}
 	return 0;
