@@ -38,8 +38,8 @@ Writing a device driver involves multiple tools, languages, and configuration fi
 - [Build and Flash](#build-and-flash)
 - [Going Further](#going-further)
 - [Challenge](#challenge)
+- [Troubleshooting](#troubleshooting)
 - [License](#license)
-
 
 ## Prerequisites
 
@@ -154,10 +154,10 @@ Linux/macOS:
 docker run --rm -it -p 8800:8800 -v "$(pwd)"/workspace:/workspace -w /workspace env-zephyr-espressif
 ```
 
-Windows:
+Windows (PowerShell):
 
 ```bat
-docker run --rm -it -p 8800:8800 -v "%cd%\workspace":/workspace -w /workspace env-zephyr-espressif
+docker run --rm -it -p 8800:8800 -v "${PWD}\workspace:/workspace" -w /workspace env-zephyr-espressif
 ```
 
 Leave that terminal window open, as it will act as our server. Open a browser on your host OS (verified working on Chrome) and navigate to [localhost:8800](http://localhost:8800/). It should connect to the container's server, and you should be presented with a VS Code instance.
@@ -192,11 +192,11 @@ Before we start driver development, let's make sure we can build the basic blink
 
 ✅ Open a terminal in the VS Code client and build the project. Note that I'm using the [ESP32-S3-DevKitC](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/hw-reference/esp32s3/user-guide-devkitc-1.html) as my target board. Feel free to change it to one of the [other ESP32 dev boards](https://docs.zephyrproject.org/latest/boards/index.html#vendor=espressif).
 
-> **Note**: Whenever you see the root bash prompt (`#`), it means you should enter those commands into a terminal in the container (browser-based VS Code instance or root shell).
+In the VS Code editor in the Docker container:
 
 ```
-# cd apps/blink
-# west build -p always -b esp32s3_devkitc/esp32s3/procpu -- -DDTC_OVERLAY_FILE=boards/esp32s3_devkitc.overlay
+cd apps/blink
+west build -p always -b esp32s3_devkitc/esp32s3/procpu -- -DDTC_OVERLAY_FILE=boards/esp32s3_devkitc.overlay
 ```
 
 With some luck, the *blink* sample should build. Pay attention to any errors you see.
@@ -215,6 +215,8 @@ The binary files will be in *workspace/apps/blink/build/zephyr*, which you can f
 ```sh
 python -m esptool --port "<PORT>" --chip auto --baud 921600 --before default_reset --after hard_reset write_flash -u --flash_mode keep --flash_freq 40m --flash_size detect 0x0 workspace/apps/blink/build/zephyr/zephyr.bin
 ```
+
+> **Important**: If you are using Linux and get a `Permission denied` or `Port doesn't exist` error when flashing, you likely need to add your user to the *dialout* group with the following command: `sudo usermod -a -G dialout $USER`. Log out and log back in (or restart). You should then be able to call the *esptool* command again to flash the firmware.
 
 ![Flash ESP32 dev board](.images/screen-flash-esp32.png)
 
@@ -365,12 +367,12 @@ static int mcp9808_reg_read(const struct device *dev,
 	const struct mcp9808_config *cfg = dev->config;
 
 	// Write the register address first then read from the I2C bus
-	int rc = i2c_write_read_dt(&cfg->i2c, &reg, sizeof(reg), val, sizeof(*val));
-	if (rc == 0) {
+	int ret = i2c_write_read_dt(&cfg->i2c, &reg, sizeof(reg), val, sizeof(*val));
+	if (ret == 0) {
 		*val = sys_be16_to_cpu(*val);
 	}
 
-	return rc;
+	return ret;
 }
 
 // Write to a register (at address reg) on the device
@@ -394,7 +396,7 @@ static int mcp9808_reg_write_8bit(const struct device *dev,
 static int mcp9808_init(const struct device *dev)
 {
 	const struct mcp9808_config *cfg = dev->config;
-	int rc = 0;
+	int ret = 0;
 
 	// Print to console
 	LOG_DBG("Initializing");
@@ -406,14 +408,14 @@ static int mcp9808_init(const struct device *dev)
 	}
 
 	// Set temperature resolution (make sure we can write to the device)
-	rc = mcp9808_reg_write_8bit(dev, MCP9808_REG_RESOLUTION, cfg->resolution);
+	ret = mcp9808_reg_write_8bit(dev, MCP9808_REG_RESOLUTION, cfg->resolution);
 	LOG_DBG("Setting resolution to index %d", cfg->resolution);
 	if (rc) {
 		LOG_ERR("Could not set the resolution of mcp9808 module");
-		return rc;
+		return ret;
 	}
 
-	return rc;
+	return ret;
 }
 
 //------------------------------------------------------------------------------
@@ -556,7 +558,7 @@ static int mcp9808_reg_read(const struct device *dev,
 ...
 ```
 
-Next, we declare our functions. Note the use gratuitous use of `static` here; we want to keep these functions *private*, which means that they can only be seen by the compiler inside this file. To illistrate how a Zephyr driver *API* works, I divided the functions into *private* and *public* sections, but notice that they are still all declared as `static`.
+Next, we declare our functions. Note the use gratuitous use of `static` here; we want to keep these functions *private*, which means that they can only be seen by the compiler inside this file. To illustrate how a Zephyr driver *API* works, I divided the functions into *private* and *public* sections, but notice that they are still all declared as `static`.
 
 From there, we define our functions. The register reading and writing should be familiar if you've worked with I2C devices before. If not, I recommend reading [this introduction to I2C](https://learn.sparkfun.com/tutorials/i2c/all). In these functions, we call Zephyr's I2C API to handle the low-level functions for us.
 
@@ -567,7 +569,7 @@ To learn about the available I2C functions, you can either navigate to the I2C h
 The interesting part is that we are creating *instance-specific* functions without the use of object-oriented programming. To do that, the I2C functions expect a `i2c_dt_spec` struct as their first parameter, which holds the bus (e.g. `i2c0` or `i2c1`) and device address (e.g. `0x18` for the MCP9808). These are values that get populated from the Devicetree source, rather than from your application code. For example:
 
 ```c
-int rc = i2c_write_read_dt(&cfg->i2c, &reg, sizeof(reg), val, sizeof(*val));
+int ret = i2c_write_read_dt(&cfg->i2c, &reg, sizeof(reg), val, sizeof(*val));
 ```
 
 Here, we perform the common pattern of writing a register address (`reg`) out to the device (at I2C address `i2c->addr`) and then reading the value from the register, which is saved to the `val` variable.
@@ -985,10 +987,10 @@ We then create a subnode with the name `mcp9808@18`. The `@18` is a *unit addres
 Even though we do not have any application code, you can actually build your project:
 
 ```sh
-# west build -p always -b esp32s3_devkitc/esp32s3/procpu -- -DDTC_OVERLAY_FILE=boards/esp32s3_devkitc.overlay
+west build -p always -b esp32s3_devkitc/esp32s3/procpu -- -DDTC_OVERLAY_FILE=boards/esp32s3_devkitc.overlay
 ```
 
-Note that we pass our overlay file to the build system by setting the `DTC_OVERLAY_FILE` variable. West uses the parameter `--` is used to pass subsequent arguments to the underlyaing CMake system. So, `DTC_OVERLAY_FILE` is used by CMake rather than the overarching *west* system.
+Note that we pass our overlay file to the build system by setting the `DTC_OVERLAY_FILE` variable. West uses the parameter `--` is used to pass subsequent arguments to the underlying CMake system. So, `DTC_OVERLAY_FILE` is used by CMake rather than the overarching *west* system.
 
 Zephyr takes our overlay file and combines it with all of the other Devicetree source (.dts) and Devicetree source include (.dtsi) files it found for our SOC and board. It produces a combined DTS file at *apps/read_temp/build/zephyr/zephyr.dts*. If you open that file and search for "mcp9808," you should be able to find the custom node we created. Notice that it is a subnode of `i2c0`, as it is considered to be attached to that bus.
 
@@ -1028,7 +1030,7 @@ Finally, after all that configuration, we get to write our application code!
 int main(void)
 {
 	const struct device *const mcp = DEVICE_DT_GET(DT_ALIAS(my_mcp9808));
-	int rc;
+	int ret;
 
     // Check if the MCP9808 is found
 	if (mcp == NULL) {
@@ -1048,16 +1050,16 @@ int main(void)
         struct sensor_value tmp;
 
         // Fetch the temperature value from the sensor into the device's data structure
-        rc = sensor_sample_fetch(mcp);
-        if (rc != 0) {
-            printf("Sample fetch error: %d\n", rc);
+        ret = sensor_sample_fetch(mcp);
+        if (ret != 0) {
+            printf("Sample fetch error: %d\n", ret);
             return 0;
         }
 
         // Copy the temperature value from the device's data structure into the tmp struct
-        rc = sensor_channel_get(mcp, SENSOR_CHAN_AMBIENT_TEMP, &tmp);
-        if (rc != 0) {
-            printf("Channel get error: %d\n", rc);
+        ret = sensor_channel_get(mcp, SENSOR_CHAN_AMBIENT_TEMP, &tmp);
+        if (ret != 0) {
+            printf("Channel get error: %d\n", ret);
             return 0;
         }
 
@@ -1099,8 +1101,8 @@ Finally, we print the value and wait 1 second before repeating.
 ✅ In the VS Code client, go to the *read_temp* application directory and build the project:
 
 ```
-# cd apps/read_temp
-# west build -p always -b esp32s3_devkitc/esp32s3/procpu -- -DDTC_OVERLAY_FILE=boards/esp32s3_devkitc.overlay
+cd apps/read_temp
+west build -p always -b esp32s3_devkitc/esp32s3/procpu -- -DDTC_OVERLAY_FILE=boards/esp32s3_devkitc.overlay
 ```
 
 Pay attention to any errors you see.
@@ -1141,6 +1143,10 @@ This tutorial provided a wide overview (with example code) on how to create a de
  * [Video: Mastering Zephyr Driver Development by Gerard Marull Paretas](https://www.youtube.com/watch?v=o-f2qCd2AXo)
 
 While we created an *out-of-tree* module, you could submit your device driver code to the main Zephyr RTOS repository. You'll want to follow all of the [contribution guidelines](https://docs.zephyrproject.org/latest/contribute/guidelines.html), including adding any necessary samples, tests, and documentation.
+
+## Troubleshooting
+
+ * If you see an error like `could not find build.ninja` during the build process, try deleting the *build/* folder and rebuilding the project. The *build/* folder sometimes gets corrupted if the build process is interrupted or stops partway through.
 
 ## License
 
