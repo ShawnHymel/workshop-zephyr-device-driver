@@ -6,6 +6,8 @@ Welcome to the Zephyr Device Driver workshop! By the end of this workshop, you s
 
 Writing a device driver involves multiple tools, languages, and configuration file syntaxes. If this is your first time working with Kconfig and Devicetree, know that it will likely be overwhelming at first. This workshop will provide you with a barebones example and then point you to various resources should you wish to dive deeper into these concepts.
 
+📺 Check out the full [Introduction to Zephyr](https://github.com/ShawnHymel/introduction-to-zephyr) video series and repository to dive deeper into these concepts!
+
 > This workshop was tested with Zephyr RTOS v3.7.0.
 
 > **Cheat mode**: if you want to skip to the solution, go [here](https://github.com/ShawnHymel/workshop-zephyr-device-driver/tree/solution). The device driver is in *workspace/modules/mcp9808/* and the example application is in *workspace/apps/read_temp/*.
@@ -223,7 +225,7 @@ python -m esptool --port "<PORT>" --chip auto --baud 921600 --before default_res
 ✅ Open a serial port for debugging (change `<PORT>` to the serial port for your ESP32 board):
 
 ```sh
-python -m serial.tools.miniterm "<PORT>" 115200
+python -m serial.tools.miniterm "<PORT>" 115200 --raw
 ```
 
 You should see the LED state printed to the console. Exit with *ctrl+]* (or *cmd+]* for macOS).
@@ -318,7 +320,7 @@ The RESOLUTION register (address 0x08) uses just 2 bits to set the resolution. W
 
 ![MCP9808 resolution register](.images/mcp9808-resolution-register.png)
 
-The AMBIENT TEMPERATURE register (address 0x05) stores temperature data in 12-bit format with an extra bit used for the sign. We'll ignore bits 13-15, as they're used for setting thresholds. This is a 16-bit register, so we'll read from the register and conver the 12-bit temperature value (plus sign bit) to a usable value in our code.
+The AMBIENT TEMPERATURE register (address 0x05) stores temperature data in 12-bit format with an extra bit used for the sign. We'll ignore bits 13-15, as they're used for setting thresholds. This is a 16-bit register, so we'll read from the register and convert the 12-bit temperature value (plus sign bit) to a usable value in our code.
 
 ![MCP9808 ambient temperature register](.images/mcp9808-temperature-register.png)
 
@@ -410,7 +412,7 @@ static int mcp9808_init(const struct device *dev)
 	// Set temperature resolution (make sure we can write to the device)
 	ret = mcp9808_reg_write_8bit(dev, MCP9808_REG_RESOLUTION, cfg->resolution);
 	LOG_DBG("Setting resolution to index %d", cfg->resolution);
-	if (rc) {
+	if (ret) {
 		LOG_ERR("Could not set the resolution of mcp9808 module");
 		return ret;
 	}
@@ -1121,7 +1123,7 @@ python -m esptool --port "<PORT>" --chip auto --baud 921600 --before default_res
 ✅ Open a serial port for debugging (change `<PORT>` to the serial port for your ESP32 board):
 
 ```sh
-python -m serial.tools.miniterm "<PORT>" 115200
+python -m serial.tools.miniterm "<PORT>" 115200 --raw
 ```
 
 You should see the debugging information (`<dbg> MCP9808: mcp9808_init: Initializing`) printed once during boot followed by temperature data every second.
@@ -1147,6 +1149,7 @@ While we created an *out-of-tree* module, you could submit your device driver co
 ## Troubleshooting
 
  * If you see an error like `could not find build.ninja` during the build process, try deleting the *build/* folder and rebuilding the project. The *build/* folder sometimes gets corrupted if the build process is interrupted or stops partway through.
+ * If you get a `Permission denied` or `Port doesn't exist` error when flashing from a Linux host, you likely need to add your user to the *dialout* group with the following command: `sudo usermod -a -G dialout $USER`. Log out and log back in (or restart).
 
 ## License
 
