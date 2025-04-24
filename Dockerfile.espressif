@@ -149,9 +149,6 @@ RUN cd /tmp && \
     chmod +x install.sh && \
     bash install.sh --version ${VS_CODE_SERVER_VERSION}
 
-# Install CMake extensions
-RUN code-server --install-extension ms-vscode.cmake-tools
-
 # Download CMake and C/C++ extensions (code-server extension manager does not work well)
 RUN cd /tmp && \
     if [ "$TARGETARCH" = "amd64" ]; then \
