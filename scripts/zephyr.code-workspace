@@ -11,13 +11,15 @@
     ],
     "settings": {
         "terminal.integrated.shell.linux": "/bin/bash",
-        "workbench.colorTheme": "Visual Studio Dark - C++"
+        "workbench.colorTheme": "Visual Studio Dark - C++",
+        "files.readonlyInclude": {
+            "/opt/toolchains/zephyr/**": true
+        }
     },
     "extensions": {
         "recommendations": [
             "ms-vscode.cpptools",
             "ms-vscode.cmake-tools"
-
         ]
     }
 }
