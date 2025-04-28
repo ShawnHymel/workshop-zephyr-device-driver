@@ -1,0 +1,8 @@
+# Create a new option in menuconfig
+config MCP9808
+	bool "MCP9808 Temperature Sensor"
+	default n  		# Set the driver to be disabled by default
+	depends on I2C  # Make it dependent on I2C
+	help
+	  Enable driver for the MCP9808 temperature sensor. This driver
+	  depends on the I2C subsystem being enabled.

@@ -1,0 +1,23 @@
+# Description of the device
+description: Microchip MCP9808 temperature sensor
+
+# Compatibility string that matches the one in the Devicetree source and 
+# DT_DRV_COMPAT macro in the driver source code
+compatible: "microchip,mcp9808"
+
+# Includes common definitions from other bindings files
+#  - sensor-device.yaml - common sensor properties
+#  - i2c-device.yaml - common I2C communication properties
+include: [sensor-device.yaml, i2c-device.yaml]
+
+# Defines specific Devicetree properties of the MCP9808 sensor
+properties:
+  resolution:
+    type: int
+    default: 3
+    description: Sensor resolution. Default is 0.0625°C (3).
+    enum:
+      - 0 # 0.5°C
+      - 1 # 0.25°C
+      - 2 # 0.125°C
+      - 3 # 0.0625°C

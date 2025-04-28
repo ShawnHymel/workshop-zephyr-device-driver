@@ -1,0 +1,6 @@
+name: mcp9808
+build:
+  cmake: .
+  kconfig: Kconfig
+  settings:
+    dts_root: .

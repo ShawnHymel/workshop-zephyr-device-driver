@@ -5,5 +5,6 @@
         "devicetree.h": "c",
         "byteorder.h": "c",
         "errno.h": "c"
-    }
+    },
+    "cmake.ignoreCMakeListsMissing": true
 }

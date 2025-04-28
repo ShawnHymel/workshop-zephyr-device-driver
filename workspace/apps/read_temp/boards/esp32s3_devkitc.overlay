@@ -1,0 +1,36 @@
+// Create an alias for our MCP9808 device
+/ {
+    aliases {
+        my-mcp9808 = &mcp9808_18_i2c0;
+    };
+};
+
+// Add custom pins to the node labeled "pinctrl"
+&pinctrl {
+
+	// Configure custom pin settings for I2C bus 0
+    i2c0_custom_pins: i2c0_custom_pins {
+
+		// Custom group name
+        group1 {
+            pinmux = <I2C0_SDA_GPIO9>, <I2C0_SCL_GPIO10>;	// SDA on GPIO9, SCL on GPIO10
+            bias-pull-up; 									// Enable pull-up resistors for both pins
+            drive-open-drain; 								// Required for I2C
+            output-high; 									// Start with lines high (inactive state)
+        };
+    };
+};
+
+// Enable I2C0 and add MCP9808 sensor
+&i2c0 {
+    pinctrl-0 = <&i2c0_custom_pins>; 						// Use the custom pin configuration
+    status = "okay"; 										// Enable I2C0 interface
+
+	// Label: name of our device node
+    mcp9808_18_i2c0: mcp9808@18 {
+        compatible = "microchip,mcp9808"; 					// Specify device bindings/driver
+        reg = <0x18>; 										// I2C address of the MCP9808
+        status = "okay"; 									// Enable the MCP9808 sensor
+        resolution = <3>; 									// Set the resolution
+    };
+};
